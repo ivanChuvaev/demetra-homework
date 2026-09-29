@@ -89,6 +89,15 @@ export class UsersService {
     return foundUserById;
   }
 
+  async softDeleteUser(id: number) {
+    const foundUserById = await this.getUserById(id);
+    if (!foundUserById) {
+      throw new NotFoundException(`User with ID ${id} not found.`);
+    }
+    await this.userRepository.softRemove(foundUserById);
+    return foundUserById;
+  }
+
   async hashPassword(password: string) {
     return bcrypt.hash(password, 10);
   }

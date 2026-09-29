@@ -1,4 +1,9 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  DeleteDateColumn,
+} from 'typeorm';
 import { Role } from '../roles/role.enum.js';
 
 @Entity()
@@ -31,4 +36,7 @@ export class User {
     default: [Role.CLIENT],
   })
   roles: Role[];
+
+  @DeleteDateColumn()
+  deletedAt?: Date;
 }

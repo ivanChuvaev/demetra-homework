@@ -16,6 +16,7 @@ import { AuthGuard } from '../src/auth/auth.guard.js';
 import { IdempotentInterceptor } from '../src/idempotent/idempotent.interceptor.js';
 import { IdempotentModule } from '../src/idempotent/idempotent.module.js';
 import { Role } from '../src/roles/role.enum.js';
+import { QueryFailedError } from 'typeorm';
 import request from 'supertest';
 
 describe('Users (e2e)', () => {
@@ -25,12 +26,16 @@ describe('Users (e2e)', () => {
   let prepared: { user: User; accessToken: string; refreshToken: string };
 
   const extractComparablePart = (
-    user: Omit<User, 'id' | 'password'> & { id?: number; password?: string },
+    user: Omit<User, 'id' | 'password' | 'deletedAt'> & {
+      id?: number;
+      password?: string;
+    },
   ) => {
     const copy = Object.assign({}, user) as Record<string, unknown>;
     delete copy['id'];
     delete copy['password'];
-    return copy as Omit<User, 'id' | 'password'>;
+    delete copy['deletedAt'];
+    return copy;
   };
 
   beforeEach(async () => {
@@ -291,9 +296,40 @@ describe('Users (e2e)', () => {
     for (let i = 0; i < 10; i++) {
       await request(app.getHttpServer())
         .delete(`/users/${user.id}`)
-        .set('Idempotency-Key', 'random-key-2')
+        .set('Idempotency-Key', 'random-key')
         .set('Authorization', `Bearer ${prepared.accessToken}`)
         .expect(HttpStatus.OK);
+    }
+  });
+
+  it('should soft delete user and unable to create new one with the same username', async () => {
+    const user = await usersService.createUser({
+      username: 'DanilBeburishvilly',
+      firstName: 'Danil',
+      lastName: 'Beburishvilly',
+      password: '123',
+      roles: [Role.ADMIN],
+      age: 26,
+      description: 'description',
+    });
+    await request(app.getHttpServer())
+      .delete(`/users/${user.id}`)
+      .set('Idempotency-Key', 'random-key')
+      .set('Authorization', `Bearer ${prepared.accessToken}`)
+      .expect(HttpStatus.OK);
+    try {
+      await usersService.createUser({
+        username: 'DanilBeburishvilly',
+        firstName: 'Danil',
+        lastName: 'Beburishvilly',
+        password: '123',
+        roles: [Role.ADMIN],
+        age: 26,
+        description: 'description',
+      });
+      throw new Error();
+    } catch (error) {
+      expect(error).toBeInstanceOf(QueryFailedError);
     }
   });
 });

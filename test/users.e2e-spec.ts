@@ -17,6 +17,7 @@ import { IdempotentInterceptor } from '../src/idempotent/idempotent.interceptor.
 import { IdempotentModule } from '../src/idempotent/idempotent.module.js';
 import { Role } from '../src/roles/role.enum.js';
 import { QueryFailedError } from 'typeorm';
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 
 describe('Users (e2e)', () => {
@@ -39,16 +40,19 @@ describe('Users (e2e)', () => {
   };
 
   beforeEach(async () => {
+    const postgresContainer = await new PostgreSqlContainer(
+      'postgres:18',
+    ).start();
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true, expandVariables: true }),
         TypeOrmModule.forRootAsync({
           inject: [ConfigService],
-          async useFactory(configService: ConfigService) {
+          async useFactory() {
             return {
               type: 'postgres',
               entities: [User],
-              url: configService.getOrThrow('DATABASE_TEST_URL'),
+              url: postgresContainer.getConnectionUri(),
               synchronize: true,
               dropSchema: true,
             };
@@ -332,7 +336,7 @@ describe('Users (e2e)', () => {
       .expect((response) => {
         expect(response.body).toEqual([user2]);
       });
-  })
+  });
 
   it('should soft delete user and unable to create new one with the same username', async () => {
     const user = await usersService.createUser({

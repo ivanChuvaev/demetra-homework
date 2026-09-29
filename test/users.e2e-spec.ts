@@ -273,21 +273,15 @@ describe('Users (e2e)', () => {
   });
 
   it('should delete user only once', async () => {
-    const user = await request(app.getHttpServer())
-      .post('/users')
-      .send({
-        username: 'DanilBeburishvilly',
-        firstName: 'Danil',
-        lastName: 'Beburishvilly',
-        password: '123',
-        roles: [Role.ADMIN],
-        age: 26,
-        description: 'description',
-      })
-      .set('Idempotency-Key', 'random-key-1')
-      .set('Authorization', `Bearer ${prepared.accessToken}`)
-      .then((res) => res.body as User);
-
+    const user = await usersService.createUser({
+      username: 'DanilBeburishvilly',
+      firstName: 'Danil',
+      lastName: 'Beburishvilly',
+      password: '123',
+      roles: [Role.ADMIN],
+      age: 26,
+      description: 'description',
+    });
     for (let i = 0; i < 10; i++) {
       await request(app.getHttpServer())
         .delete(`/users/${user.id}`)
@@ -295,5 +289,43 @@ describe('Users (e2e)', () => {
         .set('Authorization', `Bearer ${prepared.accessToken}`)
         .expect(HttpStatus.OK);
     }
+  });
+
+  it('should fetch paginated users', async () => {
+    const user1 = await usersService.createUser({
+      username: 'DanilBeburishvilly',
+      firstName: 'Danil',
+      lastName: 'Beburishvilly',
+      password: '123',
+      roles: [Role.ADMIN],
+      age: 26,
+      description: 'description',
+    });
+    const user2 = await usersService.createUser({
+      username: 'IbragimPostomon',
+      firstName: 'Ibragim',
+      lastName: 'Postomon',
+      password: '123',
+      roles: [Role.CLIENT],
+      age: 28,
+      description: 'description',
+    });
+    await request(app.getHttpServer())
+      .get('/users')
+      .set('Authorization', `Bearer ${prepared.accessToken}`)
+      .query({ offset: 1, limit: 1 })
+      .expect(HttpStatus.OK)
+      .expect((response) => {
+        expect(response.body).toEqual([user1]);
+      });
+
+    await request(app.getHttpServer())
+      .get('/users')
+      .set('Authorization', `Bearer ${prepared.accessToken}`)
+      .query({ offset: 2, limit: 1 })
+      .expect(HttpStatus.OK)
+      .expect((response) => {
+        expect(response.body).toEqual([user2]);
+      });
   });
 });

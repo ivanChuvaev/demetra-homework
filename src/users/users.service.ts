@@ -32,8 +32,8 @@ export class UsersService {
     });
   }
 
-  async getUsers() {
-    return this.userRepository.find();
+  async getUsers(args: { offset?: number; limit?: number }) {
+    return this.userRepository.find({ skip: args.offset, take: args.limit });
   }
 
   async createUser({ password, ...data }: z.infer<typeof createUserSchema>) {

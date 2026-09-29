@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req,
 } from '@nestjs/common';
 import { UsersService } from './users.service.js';
@@ -67,8 +68,11 @@ export class UsersController {
 
   @Permissions([Permission.USERS_READ])
   @Get()
-  async getUsers() {
-    return this.usersService.getUsers();
+  async getUsers(
+    @Query('offset', new ParseIntPipe({ optional: true })) offset = 0,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit = 50,
+  ) {
+    return this.usersService.getUsers({ offset, limit });
   }
 
   @Idempotent()

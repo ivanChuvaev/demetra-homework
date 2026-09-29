@@ -110,6 +110,6 @@ export class UsersController {
     if (request.user.id === id) {
       throw new ForbiddenException('Cannot delete yourself');
     }
-    return this.usersService.deleteUser(id);
+    return this.usersService.softDeleteUser(id);
   }
 }

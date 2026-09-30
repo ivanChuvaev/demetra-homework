@@ -1,0 +1,49 @@
+import { Module } from '@nestjs/common';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
+import { UsersModule } from './users/users.module.js';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { AuthGuard } from './auth/auth.guard.js';
+import { AuthModule } from './auth/auth.module.js';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { IdempotentInterceptor } from './idempotent/idempotent.interceptor.js';
+import { IdempotentModule } from './idempotent/idempotent.module.js';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { PermissionGuard } from './permissions/permissions.guard.js';
+import path from 'node:path';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true, expandVariables: true }),
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      async useFactory(configService: ConfigService) {
+        return {
+          type: 'postgres',
+          entities: [path.join(import.meta.dirname, '**/*.entity{.js,.ts}')],
+          url: configService.getOrThrow('DATABASE_URL'),
+        };
+      },
+    }),
+    IdempotentModule,
+    AuthModule,
+    UsersModule,
+  ],
+  controllers: [AppController],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: IdempotentInterceptor,
+    },
+  ],
+})
+export class AppModule {}

@@ -2,19 +2,21 @@ import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
 import { Public } from './decorators/public.decorator.js';
 import { refreshSchema, signInSchema, signUpSchema } from './auth.schemas.js';
-import z from 'zod';
+import { TokenPair, type RefreshDto } from './auth.types.js';
+import { type SignUpDto } from './auth.types.js';
+import { type SignInDto } from './auth.types.js';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('sign-in')
   async signIn(
     @Body({ schema: signInSchema })
-    signInDto: z.infer<typeof signInSchema>,
-  ) {
+    signInDto: SignInDto,
+  ): Promise<TokenPair> {
     return this.authService.signIn(signInDto);
   }
 
@@ -24,8 +26,8 @@ export class AuthController {
   // current implementation does not require email verification and anyone can create as many accounts as they want with any roles including Role.ADMIN
   async signUp(
     @Body({ schema: signUpSchema })
-    signUpDto: z.infer<typeof signUpSchema>,
-  ) {
+    signUpDto: SignUpDto,
+  ): Promise<TokenPair> {
     return this.authService.signUp(signUpDto);
   }
 
@@ -33,8 +35,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
   async refresh(
-    @Body({ schema: refreshSchema }) refreshDto: z.infer<typeof refreshSchema>,
-  ) {
+    @Body({ schema: refreshSchema }) refreshDto: RefreshDto,
+  ): Promise<TokenPair> {
     return this.authService.refreshTokens(refreshDto);
   }
 }

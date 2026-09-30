@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:18
-    container_name: demetra-homework-1-postgres
+    container_name: demetra-homework-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}

@@ -1,8 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Module, StandardSchemaValidationPipe } from '@nestjs/common';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { UsersModule } from './users/users.module.js';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { AuthGuard } from './auth/auth.guard.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -43,6 +43,10 @@ import path from 'node:path';
     {
       provide: APP_INTERCEPTOR,
       useClass: IdempotentInterceptor,
+    },
+    {
+      provide: APP_PIPE,
+      useClass: StandardSchemaValidationPipe,
     },
   ],
 })

@@ -6,6 +6,6 @@ const rolePermissionsMap: Record<Role, Permission[]> = {
   [Role.CLIENT]: [Permission.USERS_READ],
 };
 
-export function getRolePermissions(role: Role) {
+export function getRolePermissions(role: Role): Permission[] {
   return rolePermissionsMap[role];
 }

@@ -7,8 +7,10 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service.js';
 import { AuthJwtPayload } from './auth.types.js';
-import { refreshSchema, signInSchema, signUpSchema } from './auth.schemas.js';
-import z from 'zod';
+import type { RefreshDto, TokenPair } from './auth.types.js';
+import type { SignUpDto } from './auth.types.js';
+import type { SignInDto } from './auth.types.js';
+import { User } from '../users/user.entity.js';
 
 @Injectable()
 export class AuthService {
@@ -17,7 +19,7 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async signIn(payload: z.infer<typeof signInSchema>) {
+  async signIn(payload: SignInDto): Promise<TokenPair> {
     const user = await this.usersService.getUserByUsername(payload.username);
     if (!user) {
       throw new NotFoundException(
@@ -38,7 +40,7 @@ export class AuthService {
     });
   }
 
-  async signUp(payload: z.infer<typeof signUpSchema>) {
+  async signUp(payload: SignUpDto): Promise<TokenPair> {
     const user = await this.usersService.createUser(payload);
     return this.generateTokens({
       sub: user.id,
@@ -46,7 +48,7 @@ export class AuthService {
     });
   }
 
-  async refreshTokens(payload: z.infer<typeof refreshSchema>) {
+  async refreshTokens(payload: RefreshDto): Promise<TokenPair> {
     const user = await this.extractUserFromToken(payload.refreshToken);
     if (!user) {
       throw new UnauthorizedException('Authorized user not found');
@@ -57,7 +59,7 @@ export class AuthService {
     });
   }
 
-  async generateTokens(payload: AuthJwtPayload) {
+  async generateTokens(payload: AuthJwtPayload): Promise<TokenPair> {
     const accessToken = await this.jwtService.signAsync(payload, {
       expiresIn: '5m',
     });
@@ -70,7 +72,7 @@ export class AuthService {
     };
   }
 
-  async verifyToken(jwt: string) {
+  async verifyToken(jwt: string): Promise<boolean> {
     try {
       await this.jwtService.verifyAsync(jwt);
       return true;
@@ -79,7 +81,7 @@ export class AuthService {
     }
   }
 
-  async extractUserFromToken(jwt: string) {
+  async extractUserFromToken(jwt: string): Promise<User | null> {
     if (!(await this.verifyToken(jwt))) {
       throw new UnauthorizedException('JWT token did not pass verification');
     }

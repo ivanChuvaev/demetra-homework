@@ -7,8 +7,7 @@ import bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity.js';
-import z from 'zod';
-import { createUserSchema, updateUserPartialSchema } from './users.schemas.js';
+import type { CreateUserDto, UpdateUserPartialDto } from './users.types.js';
 
 @Injectable()
 export class UsersService {
@@ -16,7 +15,7 @@ export class UsersService {
     @InjectRepository(User) private userRepository: Repository<User>,
   ) {}
 
-  async getUserById(id: number) {
+  async getUserById(id: number): Promise<User | null> {
     return this.userRepository.findOne({
       where: {
         id,
@@ -24,7 +23,7 @@ export class UsersService {
     });
   }
 
-  async getUserByUsername(username: string) {
+  async getUserByUsername(username: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: {
         username,
@@ -32,11 +31,11 @@ export class UsersService {
     });
   }
 
-  async getUsers(args: { offset?: number; limit?: number }) {
+  async getUsers(args: { offset?: number; limit?: number }): Promise<User[]> {
     return this.userRepository.find({ skip: args.offset, take: args.limit });
   }
 
-  async createUser({ password, ...data }: z.infer<typeof createUserSchema>) {
+  async createUser({ password, ...data }: CreateUserDto): Promise<User> {
     const foundUserByUsername = await this.getUserByUsername(data.username);
     if (foundUserByUsername) {
       throw new BadRequestException(
@@ -51,8 +50,8 @@ export class UsersService {
 
   async updateUser(
     id: number,
-    { password, ...data }: z.infer<typeof updateUserPartialSchema>,
-  ) {
+    { password, ...data }: UpdateUserPartialDto,
+  ): Promise<User> {
     const foundUserById = await this.getUserById(id);
     if (!foundUserById) {
       throw new NotFoundException(`User with ID ${id} not found.`);
@@ -80,7 +79,7 @@ export class UsersService {
     return foundUserById;
   }
 
-  async deleteUser(id: number) {
+  async deleteUser(id: number): Promise<User> {
     const foundUserById = await this.getUserById(id);
     if (!foundUserById) {
       throw new NotFoundException(`User with ID ${id} not found.`);
@@ -89,7 +88,7 @@ export class UsersService {
     return foundUserById;
   }
 
-  async softDeleteUser(id: number) {
+  async softDeleteUser(id: number): Promise<User> {
     const foundUserById = await this.getUserById(id);
     if (!foundUserById) {
       throw new NotFoundException(`User with ID ${id} not found.`);
@@ -98,11 +97,14 @@ export class UsersService {
     return foundUserById;
   }
 
-  async hashPassword(password: string) {
+  async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, 10);
   }
 
-  async comparePasswordWithHash(password: string, hash: string) {
+  async comparePasswordWithHash(
+    password: string,
+    hash: string,
+  ): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
 }

@@ -1,15 +1,15 @@
 import { Module, StandardSchemaValidationPipe } from '@nestjs/common';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
-import { UsersModule } from './users/users.module.js';
+import { UsersModule } from './modules/users/users.module.js';
 import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
-import { AuthGuard } from './auth/auth.guard.js';
-import { AuthModule } from './auth/auth.module.js';
+import { AuthGuard } from './modules/auth/guards/auth.guard.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { IdempotentInterceptor } from './idempotent/idempotent.interceptor.js';
-import { IdempotentModule } from './idempotent/idempotent.module.js';
+import { IdempotentInterceptor } from './common/idempotent/idempotent.interceptor.js';
+import { IdempotentModule } from './common/idempotent/idempotent.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PermissionGuard } from './permissions/permissions.guard.js';
+import { PermissionGuard } from './modules/auth/guards/permissions.guard.js';
 import path from 'node:path';
 
 @Module({

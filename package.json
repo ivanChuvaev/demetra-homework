@@ -19,7 +19,7 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "test:e2e": "vitest run --config ./vitest.config.e2e.ts --no-file-parallelism",
+    "test:integration": "vitest run --config ./vitest.config.integration.ts --no-file-parallelism",
     "migration:create": "node ./scripts/migration-create.js",
     "migration:generate": "node ./scripts/migration-generate.js",
     "migration:run": "typeorm-ts-node-esm migration:run -d ./datasource.ts",

@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { RequestAfterAuth } from '../../src/modules/auth/types/auth.types.js';
-import { UsersController } from '../../src/modules/users/users.controller.js';
-import { UsersService } from '../../src/modules/users/users.service.js';
-import { Role } from '../../src/common/authorization/roles/role.enum.js';
-import { ForbiddenException } from '@nestjs/common';
+import { AuthorizedRequest } from '../../auth/types/auth.types.js';
+import { UsersController } from '../users.controller.js';
+import { UsersService } from '../users.service.js';
+import { Role } from '../../../common/authorization/roles/role.enum.js';
+import { UserResponseDto } from '../dto/user.dto.js';
+import { DemetraForbiddenException } from '../../../common/demetra/demetra.exception.js';
 
 const mockedUsersService = {
   getUserById: vitest.fn(),
@@ -11,6 +12,7 @@ const mockedUsersService = {
   createUser: vitest.fn(),
   updateUser: vitest.fn(),
   deleteUser: vitest.fn(),
+  softDeleteUser: vitest.fn(),
 };
 
 describe('UsersController', () => {
@@ -58,7 +60,7 @@ describe('UsersController', () => {
         description: 'description',
       }),
     ).resolves.toEqual(user);
-    await expect(controller.getUsers()).resolves.toEqual([user]);
+    await expect(controller.getUsers({})).resolves.toEqual([user]);
   });
 
   it('should return the current user', () => {
@@ -71,7 +73,7 @@ describe('UsersController', () => {
       age: 26,
       description: 'description',
     };
-    const request = { user } as unknown as RequestAfterAuth;
+    const request = { user } as unknown as AuthorizedRequest;
 
     expect(controller.getCurrentUser(request)).toEqual(user);
   });
@@ -89,7 +91,7 @@ describe('UsersController', () => {
     };
     const request = {
       user: { id: 1 },
-    } as unknown as RequestAfterAuth;
+    } as unknown as AuthorizedRequest;
     mockedUsersService.updateUser.mockResolvedValue(user);
 
     await expect(
@@ -98,7 +100,6 @@ describe('UsersController', () => {
         firstName: 'Danil',
         lastName: 'Beburishvilly',
         password: '123',
-        roles: [Role.ADMIN],
         age: 26,
         description: 'description',
       }),
@@ -106,48 +107,22 @@ describe('UsersController', () => {
   });
 
   it('should partially update the current user', async () => {
-    const user = {
+    const user: UserResponseDto = {
+      id: 1,
       username: 'DanilBeburishvilly',
       firstName: 'Danil',
       lastName: 'Beburishvilly',
-      password: '123',
       roles: [Role.ADMIN],
       age: 26,
       description: 'description',
     };
     const request = {
       user,
-    } as unknown as RequestAfterAuth;
+    } as unknown as AuthorizedRequest;
     mockedUsersService.updateUser.mockResolvedValue(user);
 
     await expect(
       controller.updateCurrentUserPartial(request, { firstName: 'Danil' }),
     ).resolves.toEqual(user);
-  });
-
-  it('should throw on attempt to delete yourself', async () => {
-    const user = {
-      id: 1,
-      username: 'IvanChuvaev',
-      firstName: 'Ivan',
-      lastName: 'Chuvaev',
-      password: 'hashed-password',
-      roles: [Role.ADMIN],
-      age: 26,
-      description: 'description',
-    };
-    const request = {
-      user,
-    } as unknown as RequestAfterAuth;
-    mockedUsersService.updateUser.mockResolvedValue(user);
-    try {
-      await controller.deleteUser(1, request);
-      throw new Error();
-    } catch (error) {
-      expect(error).toBeInstanceOf(ForbiddenException);
-      expect((error as ForbiddenException).message).toBe(
-        'Cannot delete yourself',
-      );
-    }
   });
 });

@@ -1,11 +1,15 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthGuard } from '../../src/modules/auth/guards/auth.guard.js';
+import { AuthGuard } from '../guards/auth.guard.js';
 import { JwtService } from '@nestjs/jwt';
-import { UsersService } from '../../src/modules/users/users.service.js';
-import { AuthJwtPayload } from '../../src/modules/auth/types/auth.types.js';
-import { User } from '../../src/modules/users/user.entity.js';
-import { Role } from '../../src/common/authorization/roles/role.enum.js';
+import { UsersService } from '../../users/users.service.js';
+import { AuthJwtPayload } from '../types/auth.types.js';
+import { User } from '../../users/entities/user.entity.js';
+import { Role } from '../../../common/authorization/roles/role.enum.js';
+import {
+  DemetraInvalidValueException,
+  DemetraNotFoundException,
+} from '../../../common/demetra/demetra.exception.js';
 
 const mockedUsersService = {
   getUserById: vi.fn(),
@@ -64,8 +68,8 @@ describe('AppController', () => {
       await authGuard.canActivate(mockedContext as unknown as ExecutionContext);
       throw new Error();
     } catch (error) {
-      expect(error).toBeInstanceOf(UnauthorizedException);
-      expect((error as UnauthorizedException).message).toBe(
+      expect(error).toBeInstanceOf(DemetraInvalidValueException);
+      expect((error as DemetraInvalidValueException).message).toBe(
         'Token is not provided',
       );
     }
@@ -76,8 +80,8 @@ describe('AppController', () => {
       await authGuard.canActivate(mockedContext as unknown as ExecutionContext);
       throw new Error();
     } catch (error) {
-      expect(error).toBeInstanceOf(UnauthorizedException);
-      expect((error as UnauthorizedException).message).toBe(
+      expect(error).toBeInstanceOf(DemetraInvalidValueException);
+      expect((error as DemetraInvalidValueException).message).toBe(
         'Token did not pass verification',
       );
     }
@@ -98,8 +102,8 @@ describe('AppController', () => {
       await authGuard.canActivate(mockedContext as unknown as ExecutionContext);
       throw new Error();
     } catch (error) {
-      expect(error).toBeInstanceOf(UnauthorizedException);
-      expect((error as UnauthorizedException).message).toBe(
+      expect(error).toBeInstanceOf(DemetraNotFoundException);
+      expect((error as DemetraNotFoundException).message).toBe(
         'Authorized user not found',
       );
     }

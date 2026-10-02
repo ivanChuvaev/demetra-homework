@@ -1,9 +1,9 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { PermissionGuard } from '../../src/modules/auth/guards/permissions.guard.js';
+import { PermissionGuard } from '../../../modules/auth/guards/permissions.guard.js';
 import { Reflector } from '@nestjs/core';
-import { User } from '../../src/modules/users/user.entity.js';
-import { Role } from '../../src/common/authorization/roles/role.enum.js';
-import { Permission } from '../../src/common/authorization/permissions/permission.enum.js';
+import { User } from '../../../modules/users/entities/user.entity.js';
+import { Role } from '../../authorization/roles/role.enum.js';
+import { Permission } from '../../authorization/permissions/permission.enum.js';
 
 const mockedReflector = {
   getAllAndOverride: vi.fn(),

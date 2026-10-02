@@ -1,9 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UsersService } from '../../src/modules/users/users.service.js';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { UsersService } from '../users.service.js';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { User } from '../../src/modules/users/user.entity.js';
-import { Role } from '../../src/common/authorization/roles/role.enum.js';
+import { User } from '../entities/user.entity.js';
+import { Role } from '../../../common/authorization/roles/role.enum.js';
+import {
+  DemetraBadRequestException,
+  DemetraForbiddenException,
+  DemetraNotFoundException,
+} from '../../../common/demetra/demetra.exception.js';
 
 const mockedUserRepository = {
   find: vitest.fn(),
@@ -37,58 +41,56 @@ describe('UsersService', () => {
     expect(usersService).toBeDefined();
   });
 
-  it('should throw error on attempt to create user with existings username', async () => {
+  it('should throw error on attempt to create user with existing username', async () => {
     mockedUserRepository.findOne.mockResolvedValue(
       Object.assign(new User(), {
         id: 1,
         firstName: 'Ivan',
         lastName: 'Chuvaev',
         username: 'IvanChuvaev',
-        password: 'hashed-password',
-        roles: [Role.ADMIN],
+        password: await usersService.hashPassword('123'),
         age: 26,
         description: 'description',
-      }),
+        roles: [Role.ADMIN],
+        tokens: [],
+      } satisfies User),
     );
     try {
       await usersService.createUser({
         firstName: 'Ivan',
         lastName: 'Chuvaev',
         username: 'IvanChuvaev',
-        password: '123',
-        roles: [Role.ADMIN],
+        password: await usersService.hashPassword('123'),
         age: 26,
         description: 'description',
+        roles: [Role.ADMIN],
       });
     } catch (error) {
-      expect(error).toBeInstanceOf(BadRequestException);
+      expect(error).toBeInstanceOf(DemetraBadRequestException);
     }
   });
 
   it('should update user', async () => {
+    const user: User = Object.assign(new User(), {
+      id: 1,
+      firstName: 'Ivan',
+      lastName: 'Chuvaev',
+      username: 'IvanChuvaev',
+      age: 26,
+      roles: [Role.ADMIN],
+      password: await usersService.hashPassword('123'),
+      description: 'description',
+      tokens: [],
+    } satisfies User);
     mockedUserRepository.findOne.mockImplementation(
       async (config: { where: { id?: number; username?: string } }) => {
         if (config.where.id === 1 || config.where.username === 'IvanChuvaev') {
-          return Object.assign(new User(), {
-            id: 1,
-            firstName: 'Ivan',
-            lastName: 'Chuvaev',
-            username: 'IvanChuvaev',
-            password: await usersService.hashPassword('123'),
-          });
+          return user;
         }
         return null;
       },
     );
-    mockedUserRepository.find.mockResolvedValue([
-      Object.assign(new User(), {
-        id: 1,
-        firstName: 'Ivan',
-        lastName: 'Chuvaev',
-        username: 'IvanChuvaev',
-        password: await usersService.hashPassword('123'),
-      }),
-    ]);
+    mockedUserRepository.find.mockResolvedValue([user]);
     mockedUserRepository.save.mockImplementation(async (entity: User) => {
       expect(entity).toBeInstanceOf(User);
       expect(entity.id).toBe(1);
@@ -96,7 +98,10 @@ describe('UsersService', () => {
       expect(entity.lastName).toBe('Chuvaev');
       expect(entity.username).toBe('DanilBeburishvilly');
       expect(
-        await usersService.comparePasswordWithHash('123', entity.password),
+        await usersService.compareUserPasswordWithProvidedPassword(
+          entity.id,
+          '123',
+        ),
       ).toBe(true);
       return entity;
     });
@@ -114,14 +119,22 @@ describe('UsersService', () => {
         lastName: 'Chuvaev',
         username: 'IvanChuvaev',
         password: await usersService.hashPassword('123'),
-      }),
+        description: 'description',
+        age: 26,
+        roles: [Role.ADMIN],
+        tokens: [],
+      } satisfies User),
       Object.assign(new User(), {
         id: 2,
         firstName: 'Danil',
         lastName: 'Beburishvilly',
         username: 'DanilBeburishvilly',
         password: await usersService.hashPassword('123'),
-      }),
+        description: 'description',
+        age: 26,
+        roles: [Role.ADMIN],
+        tokens: [],
+      } satisfies User),
     ]);
     mockedUserRepository.findOne.mockResolvedValue(
       Object.assign(new User(), {
@@ -130,7 +143,11 @@ describe('UsersService', () => {
         lastName: 'Chuvaev',
         username: 'IvanChuvaev',
         password: await usersService.hashPassword('123'),
-      }),
+        description: 'description',
+        age: 26,
+        roles: [Role.ADMIN],
+        tokens: [],
+      } satisfies User),
     );
     try {
       await usersService.updateUser(1, {
@@ -138,7 +155,7 @@ describe('UsersService', () => {
       });
       throw new Error('should have thrown an error');
     } catch (error) {
-      expect(error).toBeInstanceOf(BadRequestException);
+      expect(error).toBeInstanceOf(DemetraBadRequestException);
     }
   });
 
@@ -150,7 +167,11 @@ describe('UsersService', () => {
         lastName: 'Chuvaev',
         username: 'IvanChuvaev',
         password: await usersService.hashPassword('123'),
-      }),
+        description: 'description',
+        age: 26,
+        roles: [Role.ADMIN],
+        tokens: [],
+      } satisfies User),
     );
     mockedUserRepository.find.mockResolvedValue([
       Object.assign(new User(), {
@@ -159,7 +180,11 @@ describe('UsersService', () => {
         lastName: 'Chuvaev',
         username: 'IvanChuvaev',
         password: await usersService.hashPassword('123'),
-      }),
+        description: 'description',
+        age: 26,
+        roles: [Role.ADMIN],
+        tokens: [],
+      } satisfies User),
     ]);
     await usersService.updateUser(1, { username: 'IvanChuvaev' });
   });
@@ -168,28 +193,42 @@ describe('UsersService', () => {
     mockedUserRepository.find.mockResolvedValue([]);
     mockedUserRepository.findOne.mockResolvedValue(null);
     try {
-      await usersService.deleteUser(1);
+      await usersService.deleteUser({ userId: 1, currentUserId: 2 });
     } catch (error) {
-      expect(error).toBeInstanceOf(NotFoundException);
+      expect(error).toBeInstanceOf(DemetraNotFoundException);
     }
   });
 
-  it('should check that password is saved as hash', async () => {
-    mockedUserRepository.findOne.mockResolvedValue(null);
-    mockedUserRepository.save.mockImplementation(async (entity: User) => {
-      expect(
-        await usersService.comparePasswordWithHash('123', entity.password),
-      ).toBe(true);
-      return entity;
-    });
-    await usersService.createUser({
+  it('should throw on attempt to delete yourself', async () => {
+    const user = Object.assign(new User(), {
+      id: 1,
+      username: 'IvanChuvaev',
       firstName: 'Ivan',
       lastName: 'Chuvaev',
-      username: 'IvanChuvaev',
-      password: '123',
       roles: [Role.ADMIN],
       age: 26,
       description: 'description',
-    });
+      password: 'hashed-password',
+      tokens: [],
+    } satisfies User);
+    mockedUserRepository.findOne.mockReturnValue(user);
+    try {
+      await usersService.softDeleteUser({ userId: 1, currentUserId: 1 });
+      throw new Error();
+    } catch (error) {
+      expect(error).toBeInstanceOf(DemetraForbiddenException);
+      expect((error as DemetraForbiddenException).message).toBe(
+        'Cannot delete yourself',
+      );
+    }
+    try {
+      await usersService.deleteUser({ userId: 1, currentUserId: 1 });
+      throw new Error();
+    } catch (error) {
+      expect(error).toBeInstanceOf(DemetraForbiddenException);
+      expect((error as DemetraForbiddenException).message).toBe(
+        'Cannot delete yourself',
+      );
+    }
   });
 });

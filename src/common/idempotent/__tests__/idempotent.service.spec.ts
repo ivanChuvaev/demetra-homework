@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   IDEMPOTENT_SERVICE_MAX_SIZE,
   IdempotentService,
-} from '../../src/common/idempotent/idempotent.service.js';
+} from '../idempotent.service.js';
 import { randomUUID } from 'node:crypto';
 
 describe('IdempotentService', () => {

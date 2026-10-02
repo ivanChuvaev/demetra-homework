@@ -9,3 +9,6 @@ export const signUpSchema = createUserSchema;
 export const refreshSchema = z.object({
   refreshToken: z.string().nonempty(),
 });
+export const tokenResponseSchema = z.object({
+  accessToken: z.string().nonempty(),
+});

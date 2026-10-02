@@ -5,7 +5,7 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { map, Observable, of } from 'rxjs';
-import { RequestAfterAuth } from '../../modules/auth/types/auth.types.js';
+import { AuthorizedRequest } from '../../modules/auth/types/auth.types.js';
 import { IdempotentService } from './idempotent.service.js';
 import { Reflector } from '@nestjs/core';
 import { IS_IDEMPOTENT_KEY } from './idempotent.decorator.js';
@@ -21,7 +21,7 @@ export class IdempotentInterceptor implements NestInterceptor {
     next: CallHandler<any>,
   ): Observable<any> | Promise<Observable<any>> {
     const host = context.switchToHttp();
-    const request = host.getRequest() as RequestAfterAuth;
+    const request = host.getRequest() as AuthorizedRequest;
     const idempotencyKey = request.header('Idempotency-Key');
     const isIdempotent = this.reflector.getAllAndOverride<boolean>(
       IS_IDEMPOTENT_KEY,

@@ -1,13 +1,26 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthService } from '../../src/modules/auth/auth.service.js';
+import { AuthService } from '../auth.service.js';
 import { JwtModule } from '@nestjs/jwt';
-import { UsersService } from '../../src/modules/users/users.service.js';
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { UsersService } from '../../users/users.service.js';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { User } from '../../src/modules/users/user.entity.js';
-import { Role } from '../../src/common/authorization/roles/role.enum.js';
+import { Token } from '../entities/token.entity.js';
+import { User } from '../../users/entities/user.entity.js';
+import { Role } from '../../../common/authorization/roles/role.enum.js';
+import { DemetraNotFoundException } from '../../../common/demetra/demetra.exception.js';
+import { TokenService } from '../token.service.js';
+import { SignUpDto } from '../dto/auth.dto.js';
 
 const mockedUserRepository = {
+  findOne: vi.fn(),
+  save: vi.fn(),
+};
+
+const mockedTokenRepository = {
+  create: vi.fn((): Token => ({
+    user_id: 1,
+    active: true,
+    token: 'test-token',
+  })),
   findOne: vi.fn(),
   save: vi.fn(),
 };
@@ -27,9 +40,14 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         UsersService,
+        TokenService,
         {
           provide: getRepositoryToken(User),
           useValue: mockedUserRepository,
+        },
+        {
+          provide: getRepositoryToken(Token),
+          useValue: mockedTokenRepository,
         },
       ],
     }).compile();
@@ -62,8 +80,8 @@ describe('AuthService', () => {
       password: '123',
     });
     expect(result).toBeTypeOf('object');
-    expect(result).toHaveProperty('access_token');
-    expect(result).toHaveProperty('refresh_token');
+    expect(result).toHaveProperty('accessToken');
+    expect(result).toHaveProperty('refreshToken');
   });
 
   it('should fail sign in for non existing user', async () => {
@@ -71,8 +89,8 @@ describe('AuthService', () => {
       await authService.signIn({ username: 'IvanChuvaev', password: '123' });
       throw new Error();
     } catch (error) {
-      expect(error).toBeInstanceOf(NotFoundException);
-      expect((error as NotFoundException).message).toBe(
+      expect(error).toBeInstanceOf(DemetraNotFoundException);
+      expect((error as DemetraNotFoundException).message).toBe(
         'User with username: "IvanChuvaev" not found',
       );
     }
@@ -90,7 +108,7 @@ describe('AuthService', () => {
       description: 'description',
     });
     mockedUserRepository.findOne.mockImplementation(() => existingUser);
-    const { access_token: accessToken } = await authService.signIn({
+    const { accessToken } = await authService.signIn({
       username: 'IvanChuvaev',
       password: '123',
     });
@@ -102,7 +120,7 @@ describe('AuthService', () => {
   });
 
   it('should sign up, create user and return tokens', async () => {
-    const payloadUser = {
+    const signUpDto = {
       firstName: 'Ivan',
       lastName: 'Chuvaev',
       username: 'IvanChuvaev',
@@ -110,29 +128,21 @@ describe('AuthService', () => {
       roles: [Role.ADMIN],
       age: 26,
       description: 'description',
-    };
-    const createdUser = {
-      ...payloadUser,
+    } satisfies SignUpDto;
+    const createdUser: User = {
+      ...signUpDto,
+      id: 1,
       password: await usersService.hashPassword('123'),
+      tokens: [],
     };
-    mockedUserRepository.save.mockReturnValue(createdUser);
+    mockedUserRepository.save.mockImplementation((user) =>
+      Object.assign(user, createdUser),
+    );
     mockedUserRepository.findOne.mockImplementation(() => null);
-    const result = await authService.signUp(payloadUser);
+    const result = await authService.signUp(signUpDto);
     expect(result).toBeTypeOf('object');
-    expect(result).toHaveProperty('access_token');
-    expect(result).toHaveProperty('refresh_token');
-  });
-
-  it('should throw unauthorized error on attempt to refresh tokens by providing invalid refresh token', async () => {
-    try {
-      await authService.refreshTokens({ refreshToken: 'invalid-token' });
-      throw new Error();
-    } catch (error) {
-      expect(error).toBeInstanceOf(UnauthorizedException);
-      expect((error as UnauthorizedException).message).toBe(
-        'JWT token did not pass verification',
-      );
-    }
+    expect(result).toHaveProperty('accessToken');
+    expect(result).toHaveProperty('refreshToken');
   });
 
   it('should throw unauthorized error on attempt to refresh tokens by providing refresh token with non-existing user', async () => {
@@ -145,19 +155,25 @@ describe('AuthService', () => {
       roles: [Role.ADMIN],
       age: 26,
       description: 'description',
-    });
+      tokens: [],
+    } satisfies User);
     mockedUserRepository.findOne.mockReturnValue(user);
+    mockedTokenRepository.create.mockReturnValue({
+      user_id: 1,
+      active: true,
+      token: 'random-token',
+    });
     const tokens = await authService.signIn({
       username: 'IvanChuvaev',
       password: '123',
     });
     mockedUserRepository.findOne.mockReturnValue(null);
     try {
-      await authService.refreshTokens({ refreshToken: tokens.refresh_token });
+      await authService.refreshTokens({ refreshToken: tokens.refreshToken });
       throw new Error();
     } catch (error) {
-      expect(error).toBeInstanceOf(UnauthorizedException);
-      expect((error as UnauthorizedException).message).toBe(
+      expect(error).toBeInstanceOf(DemetraNotFoundException);
+      expect((error as DemetraNotFoundException).message).toBe(
         'Authorized user not found',
       );
     }

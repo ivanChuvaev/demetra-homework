@@ -3,10 +3,11 @@ import { AppModule } from './app.module.js';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
+import { DemetraEnvironment } from './common/types/demetra-environment.type.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
+  const configService = app.get(ConfigService<DemetraEnvironment>);
 
   const config = new DocumentBuilder()
     .setTitle('Demetra Homework 1')
@@ -26,7 +27,7 @@ async function bootstrap() {
     }),
   );
 
-  const port = configService.getOrThrow('PORT');
+  const port = configService.get('PORT');
   await app.listen(port);
 }
 await bootstrap();

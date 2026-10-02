@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -13,27 +12,22 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
+import type { AuthorizedRequest } from '../auth/types/auth.types.js';
 import { UsersService } from './users.service.js';
-import {
-  createUserSchema,
-  updateCurrentUserPartialSchema,
-  updateCurrentUserSchema,
-  updateUserPartialSchema,
-  updateUserSchema,
-} from './schemas/users.schemas.js';
-import type { RequestAfterAuth } from '../auth/types/auth.types.js';
 import { Idempotent } from '../../common/idempotent/idempotent.decorator.js';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Permissions } from '../../common/authorization/decorators/permissions.decorator.js';
 import { Permission } from '../../common/authorization/permissions/permission.enum.js';
-import type {
+import {
   CreateUserDto,
+  GetUsersDto,
   UpdateCurrentUserDto,
   UpdateCurrentUserPartialDto,
   UpdateUserDto,
   UpdateUserPartialDto,
-} from './types/users.types.js';
-import { User } from './user.entity.js';
+  UserResponseDto,
+} from './dto/user.dto.js';
+import { PaginatedResponse } from "../../common/types/paginated-response.type.js";
 
 @ApiBearerAuth()
 @Controller('users')
@@ -41,31 +35,31 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
-  getCurrentUser(@Req() request: RequestAfterAuth): User {
+  getCurrentUser(@Req() request: AuthorizedRequest): UserResponseDto {
     return request.user;
   }
 
   @Put('me')
   async updateCurrentUser(
-    @Req() request: RequestAfterAuth,
-    @Body({ schema: updateCurrentUserSchema })
-    body: UpdateCurrentUserDto,
-  ): Promise<User> {
+    @Req() request: AuthorizedRequest,
+    @Body() body: UpdateCurrentUserDto,
+  ): Promise<UserResponseDto> {
     return this.usersService.updateUser(request.user.id, body);
   }
 
   @Patch('me')
   async updateCurrentUserPartial(
-    @Req() request: RequestAfterAuth,
-    @Body({ schema: updateCurrentUserPartialSchema })
-    body: UpdateCurrentUserPartialDto,
-  ): Promise<User> {
+    @Req() request: AuthorizedRequest,
+    @Body() body: UpdateCurrentUserPartialDto,
+  ): Promise<UserResponseDto> {
     return this.usersService.updateUser(request.user.id, body);
   }
 
   @Permissions([Permission.USERS_READ])
   @Get(':id')
-  async getUser(@Param('id', ParseIntPipe) id: number): Promise<User> {
+  async getUser(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<UserResponseDto> {
     const foundUser = await this.usersService.getUserById(id);
     if (!foundUser) {
       throw new NotFoundException();
@@ -76,18 +70,15 @@ export class UsersController {
   @Permissions([Permission.USERS_READ])
   @Get()
   async getUsers(
-    @Query('offset', new ParseIntPipe({ optional: true })) offset = 0,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit = 50,
-  ): Promise<User[]> {
-    return this.usersService.getUsers({ offset, limit });
+    @Query() query: GetUsersDto,
+  ): Promise<PaginatedResponse<UserResponseDto>> {
+    return this.usersService.getUsers(query);
   }
 
+  @Permissions([Permission.USERS_EDIT])
   @Idempotent()
   @Post()
-  async createUser(
-    @Body({ schema: createUserSchema })
-    body: CreateUserDto,
-  ): Promise<User> {
+  async createUser(@Body() body: CreateUserDto): Promise<UserResponseDto> {
     return this.usersService.createUser(body);
   }
 
@@ -95,9 +86,8 @@ export class UsersController {
   @Put(':id')
   async updateUser(
     @Param('id', ParseIntPipe) id: number,
-    @Body({ schema: updateUserSchema })
-    body: UpdateUserDto,
-  ): Promise<User> {
+    @Body() body: UpdateUserDto,
+  ): Promise<UserResponseDto> {
     return this.usersService.updateUser(id, body);
   }
 
@@ -105,9 +95,8 @@ export class UsersController {
   @Patch(':id')
   async updateUserPartial(
     @Param('id', ParseIntPipe) id: number,
-    @Body({ schema: updateUserPartialSchema })
-    body: UpdateUserPartialDto,
-  ): Promise<User> {
+    @Body() body: UpdateUserPartialDto,
+  ): Promise<UserResponseDto> {
     return this.usersService.updateUser(id, body);
   }
 
@@ -116,11 +105,11 @@ export class UsersController {
   @Delete(':id')
   async deleteUser(
     @Param('id', ParseIntPipe) id: number,
-    @Req() request: RequestAfterAuth,
-  ): Promise<User> {
-    if (request.user.id === id) {
-      throw new ForbiddenException('Cannot delete yourself');
-    }
-    return this.usersService.softDeleteUser(id);
+    @Req() request: AuthorizedRequest,
+  ): Promise<void> {
+    return this.usersService.softDeleteUser({
+      userId: id,
+      currentUserId: request.user.id,
+    });
   }
 }

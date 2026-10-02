@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { IdempotentService } from '../../src/common/idempotent/idempotent.service.js';
+import { IdempotentService } from '../idempotent.service.js';
 import { APP_INTERCEPTOR, Reflector } from '@nestjs/core';
-import { IdempotentInterceptor } from '../../src/common/idempotent/idempotent.interceptor.js';
+import { IdempotentInterceptor } from '../idempotent.interceptor.js';
 import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { firstValueFrom, Observable } from 'rxjs';
 

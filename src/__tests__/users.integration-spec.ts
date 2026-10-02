@@ -4,70 +4,34 @@ import {
   HttpStatus,
   INestApplication,
 } from '@nestjs/common';
-import { UsersService } from '../../src/modules/users/users.service.js';
-import { AuthService } from '../../src/modules/auth/auth.service.js';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { UsersModule } from '../../src/modules/users/users.module.js';
-import { AuthModule } from '../../src/modules/auth/auth.module.js';
-import { User } from '../../src/modules/users/user.entity.js';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { AuthGuard } from '../../src/modules/auth/guards/auth.guard.js';
-import { IdempotentInterceptor } from '../../src/common/idempotent/idempotent.interceptor.js';
-import { IdempotentModule } from '../../src/common/idempotent/idempotent.module.js';
-import { Role } from '../../src/common/authorization/roles/role.enum.js';
+import { UsersService } from '../modules/users/users.service.js';
+import { AuthService } from '../modules/auth/auth.service.js';
+import { Role } from '../common/authorization/roles/role.enum.js';
 import { QueryFailedError } from 'typeorm';
+import { AppModule } from '../app.module.js';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  UpdateUserPartialDto,
+  UserResponseDto,
+} from '../modules/users/dto/user.dto.js';
 import request from 'supertest';
+import { PaginatedResponse } from "../common/types/paginated-response.type.js";
 
 describe('Users (integration)', () => {
   let app: INestApplication;
   let usersService: UsersService;
   let authService: AuthService;
-  let prepared: { user: User; accessToken: string; refreshToken: string };
-
-  const extractComparablePart = (
-    user: Omit<User, 'id' | 'password' | 'deletedAt'> & {
-      id?: number;
-      password?: string;
-    },
-  ) => {
-    const copy = Object.assign({}, user) as Record<string, unknown>;
-    delete copy['id'];
-    delete copy['password'];
-    delete copy['deletedAt'];
-    return copy;
+  let prepared: {
+    user: UserResponseDto;
+    accessToken: string;
+    refreshToken: string;
   };
 
   beforeEach(async () => {
+    process.env.DATABASE_URL = process.env.DATABASE_TEST_URL;
     const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({ isGlobal: true, expandVariables: true }),
-        TypeOrmModule.forRootAsync({
-          inject: [ConfigService],
-          async useFactory(configService: ConfigService) {
-            return {
-              type: 'postgres',
-              entities: [User],
-              url: configService.getOrThrow('DATABASE_TEST_URL'),
-              synchronize: true,
-              dropSchema: true,
-            };
-          },
-        }),
-        UsersModule,
-        AuthModule,
-        IdempotentModule,
-      ],
-      providers: [
-        {
-          provide: APP_GUARD,
-          useClass: AuthGuard,
-        },
-        {
-          provide: APP_INTERCEPTOR,
-          useClass: IdempotentInterceptor,
-        },
-      ],
+      imports: [AppModule],
     }).compile();
 
     app = module.createNestApplication();
@@ -93,8 +57,8 @@ describe('Users (integration)', () => {
 
     prepared = {
       user: createdUser,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   });
 
@@ -121,14 +85,15 @@ describe('Users (integration)', () => {
         roles: [Role.ADMIN],
         age: 26,
         description: 'description',
-      })
+      } satisfies UpdateUserDto)
       .set('Authorization', `Bearer ${prepared.accessToken}`)
       .expect(HttpStatus.OK)
       .expect((response) => {
-        expect(response.body).toBeTypeOf('object');
-        expect(response.body.username).toBe('DanilBeburishvilly');
-        expect(response.body.firstName).toBe('Danil');
-        expect(response.body.lastName).toBe('Beburishvilly');
+        const body = response.body as UserResponseDto;
+        expect(body).toBeTypeOf('object');
+        expect(body.username).toBe('DanilBeburishvilly');
+        expect(body.firstName).toBe('Danil');
+        expect(body.lastName).toBe('Beburishvilly');
       });
   });
 
@@ -146,7 +111,7 @@ describe('Users (integration)', () => {
       .put('/users/me')
       .send({
         username: 'DanilBeburishvilly',
-      })
+      } satisfies UpdateUserPartialDto)
       .set('Authorization', `Bearer ${prepared.accessToken}`)
       .expect(HttpStatus.BAD_REQUEST)
       .catch((reason) => {
@@ -159,7 +124,7 @@ describe('Users (integration)', () => {
       .patch('/users/me')
       .send({
         username: 'DanilBeburishvilly',
-      })
+      } satisfies UpdateUserPartialDto)
       .set('Authorization', `Bearer ${prepared.accessToken}`)
       .expect(HttpStatus.OK)
       .expect((response) => {
@@ -185,7 +150,7 @@ describe('Users (integration)', () => {
   });
 
   it('should create user', async () => {
-    const payload = {
+    const payload: CreateUserDto = {
       username: 'DanilBeburishvilly',
       firstName: 'Danil',
       lastName: 'Beburishvilly',
@@ -200,16 +165,20 @@ describe('Users (integration)', () => {
       .set('Idempotency-Key', 'random-key')
       .set('Authorization', `Bearer ${prepared.accessToken}`)
       .expect(HttpStatus.CREATED)
-      .expect((res) => {
-        expect(res.body).toBeTypeOf('object');
-        expect(extractComparablePart(res.body)).toEqual(
-          extractComparablePart(payload),
-        );
+      .expect((response) => {
+        const body = response.body as UserResponseDto;
+        expect(body).toBeTypeOf('object');
+        expect(body.username).toBe(payload.username);
+        expect(body.firstName).toBe(payload.firstName);
+        expect(body.lastName).toBe(payload.lastName);
+        expect(body.roles).toEqual(payload.roles);
+        expect(body.age).toBe(payload.age);
+        expect(body.description).toBe(payload.description);
       });
   });
 
   it('should create user only once', async () => {
-    const createUserPayload = {
+    const payload: CreateUserDto = {
       username: 'DanilBeburishvilly',
       firstName: 'Danil',
       lastName: 'Beburishvilly',
@@ -221,28 +190,26 @@ describe('Users (integration)', () => {
 
     const mainUser = await request(app.getHttpServer())
       .post('/users')
-      .send(createUserPayload)
+      .send(payload)
       .set('Idempotency-Key', 'random-key')
       .set('Authorization', `Bearer ${prepared.accessToken}`)
-      .then((res) => res.body as User);
+      .then((res) => res.body as UserResponseDto);
 
-    const subusers: User[] = [];
+    const subusers: UserResponseDto[] = [];
 
     for (let i = 0; i < 10; i++) {
       subusers.push(
         await request(app.getHttpServer())
           .post('/users')
-          .send(createUserPayload)
+          .send(payload)
           .set('Idempotency-Key', 'random-key')
           .set('Authorization', `Bearer ${prepared.accessToken}`)
-          .then((res) => res.body),
+          .then((res) => res.body as UserResponseDto),
       );
     }
 
     for (const subuser of subusers) {
-      expect(extractComparablePart(subuser)).toEqual(
-        extractComparablePart(mainUser),
-      );
+      expect(subuser).toEqual(mainUser);
     }
   });
 
@@ -257,7 +224,7 @@ describe('Users (integration)', () => {
         roles: [Role.ADMIN],
         age: 26,
         description: 'description',
-      })
+      } satisfies CreateUserDto)
       .set('Idempotency-Key', 'random-key-1')
       .set('Authorization', `Bearer ${prepared.accessToken}`);
 
@@ -271,7 +238,7 @@ describe('Users (integration)', () => {
         roles: [Role.ADMIN],
         age: 26,
         description: 'description',
-      })
+      } satisfies CreateUserDto)
       .set('Idempotency-Key', 'random-key-2')
       .set('Authorization', `Bearer ${prepared.accessToken}`)
       .expect(HttpStatus.BAD_REQUEST);
@@ -318,19 +285,23 @@ describe('Users (integration)', () => {
     await request(app.getHttpServer())
       .get('/users')
       .set('Authorization', `Bearer ${prepared.accessToken}`)
-      .query({ offset: 1, limit: 1 })
+      .query({ page: 2, limit: 1 })
       .expect(HttpStatus.OK)
       .expect((response) => {
-        expect(response.body).toEqual([user1]);
+        const body = response.body as PaginatedResponse<UserResponseDto>;
+        expect(body.items).toEqual([user1]);
+        expect(body.total).toBe(3);
       });
 
     await request(app.getHttpServer())
       .get('/users')
       .set('Authorization', `Bearer ${prepared.accessToken}`)
-      .query({ offset: 2, limit: 1 })
+      .query({ page: 3, limit: 1 })
       .expect(HttpStatus.OK)
       .expect((response) => {
-        expect(response.body).toEqual([user2]);
+        const body = response.body as PaginatedResponse<UserResponseDto>;
+        expect(body.items).toEqual([user2]);
+        expect(body.total).toBe(3);
       });
   });
 
@@ -363,5 +334,37 @@ describe('Users (integration)', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(QueryFailedError);
     }
+  });
+
+  it('should return forbidden status when user with role client tries to create another user', async () => {
+    const client = await usersService.createUser({
+      username: 'DanilBeburishvilly',
+      firstName: 'Danil',
+      lastName: 'Beburishvilly',
+      password: '123',
+      roles: [Role.CLIENT],
+      age: 26,
+      description: 'description',
+    });
+
+    const tokens = await authService.signIn({
+      username: client.username,
+      password: '123',
+    });
+
+    await request(app.getHttpServer())
+      .post('/users')
+      .set('Idempotency-Key', 'random-key')
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .send({
+        username: 'AlexeyStreletsky',
+        firstName: 'Alexey',
+        lastName: 'Streletsky',
+        password: '123',
+        roles: [Role.CLIENT],
+        age: 26,
+        description: 'description',
+      } satisfies CreateUserDto)
+      .expect(HttpStatus.FORBIDDEN);
   });
 });

@@ -3,8 +3,11 @@ import {
   Column,
   PrimaryGeneratedColumn,
   DeleteDateColumn,
+  OneToMany,
+  type Relation,
 } from 'typeorm';
-import { Role } from '../../common/authorization/roles/role.enum.js';
+import { Role } from '../../../common/authorization/roles/role.enum.js';
+import { Token } from '../../auth/entities/token.entity.js';
 
 @Entity()
 export class User {
@@ -14,20 +17,20 @@ export class User {
   @Column({ length: 50, unique: true })
   username: string;
 
-  @Column({ length: 100 })
+  @Column({ length: 256 })
   firstName: string;
 
-  @Column({ length: 100 })
+  @Column({ length: 256 })
   lastName: string;
 
-  @Column({ length: 64 })
+  @Column({ length: 64, select: false })
   password: string;
 
   @Column()
   age: number;
 
-  @Column({ length: 1000 })
-  description: string;
+  @Column({ type: 'varchar', length: 1000, nullable: true })
+  description: string | null;
 
   @Column({
     type: 'enum',
@@ -39,4 +42,7 @@ export class User {
 
   @DeleteDateColumn()
   deletedAt?: Date;
+
+  @OneToMany(() => Token, (token) => token.user)
+  tokens: Relation<Token>[];
 }

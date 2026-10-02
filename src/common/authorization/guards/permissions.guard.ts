@@ -6,10 +6,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { PERMISSIONS_DECORATOR_KEY } from '../../../common/authorization/decorators/permissions.decorator.js';
-import { Permission } from '../../../common/authorization/permissions/permission.enum.js';
-import { User } from '../../users/entities/user.entity.js';
-import { getRolePermissions } from '../../../common/authorization/roles/role-permissions.map.js';
+import { PERMISSIONS_DECORATOR_KEY } from '../decorators/permissions.decorator.js';
+import { Permission } from '../permissions/permission.enum.js';
+import { User } from '../../../modules/users/entities/user.entity.js';
+import { getRolePermissions } from '../roles/role-permissions.map.js';
 
 @Injectable()
 export class PermissionGuard implements CanActivate {

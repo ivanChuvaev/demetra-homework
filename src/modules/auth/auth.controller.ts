@@ -1,17 +1,17 @@
 import {
   Body,
   Controller,
+  Cookies,
   HttpCode,
   HttpStatus,
   Post,
-  Req,
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
 import { Public } from '../../common/authorization/decorators/public.decorator.js';
 import { SignInDto, SignUpDto, TokenResponseDto } from './dto/auth.dto.js';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { tokenResponseSchema } from './schemas/auth.schemas.js';
 import { TokenPair } from './types/auth.types.js';
 import {
@@ -52,12 +52,12 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
   async refresh(
-    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
+    @Cookies('refreshToken') refreshToken: string,
   ): Promise<TokenResponseDto> {
     try {
       const tokenPair = await this.authService.refreshTokens({
-        refreshToken: this.parseRefreshToken(request),
+        refreshToken,
       });
       return this.respondWithTokens(response, tokenPair);
     } catch (e) {
@@ -69,15 +69,6 @@ export class AuthController {
       }
       throw e;
     }
-  }
-
-  private parseRefreshToken(request: Request): string {
-    const cookie = request.headers.cookie;
-    const refreshToken = cookie?.match(/(?<=^refreshToken=)[^;]*(?=;)/)?.[0];
-    if (!refreshToken) {
-      throw new DemetraInvalidValueException('Refresh token is not provided');
-    }
-    return refreshToken;
   }
 
   private respondWithTokens(

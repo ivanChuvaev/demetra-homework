@@ -22,12 +22,12 @@ export const userResponseSchema = z.object({
   firstName: z.string().nonempty().max(256),
   lastName: z.string().nonempty().max(256),
   roles: z.array(z.enum(Role)).optional(),
-  age: z.number(),
-  description: z.string().optional(),
+  age: z.number().int(),
+  description: z.string().max(1000).optional(),
 });
 export const getUsersSchema = z.object({
-  page: z.coerce.number().positive().optional(),
-  limit: z.coerce.number().positive().optional(),
+  page: z.coerce.number().positive().int().optional(),
+  limit: z.coerce.number().positive().int().optional(),
 });
 export const deleteUserSchema = z.object({
   userId: z.number(),

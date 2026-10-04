@@ -30,7 +30,6 @@ import { environmentSchema } from './common/schemas/environment.schema.js';
         const isTestEnv = configService.get('NODE_ENV') === 'test';
         const config: TypeOrmModuleOptions = {
           type: 'postgres',
-          // entities: [path.join(import.meta.dirname, '**/*.entity{.js,.ts}')],
           entities: [Token, User],
           url: isTestEnv
             ? configService.getOrThrow('DATABASE_TEST_URL')
@@ -38,7 +37,6 @@ import { environmentSchema } from './common/schemas/environment.schema.js';
           synchronize: isTestEnv,
           dropSchema: isTestEnv,
         };
-        // console.log(config);
         return config;
       },
     }),
